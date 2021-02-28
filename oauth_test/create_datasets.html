@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+
+    <title>Create Data Sets</title>
+    <meta name="description" content="Create Data Sets">
+    <meta name="author" content="xxxx">
+
+    <!-- Library CSS -->
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
+        integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css"
+        integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+
+    <!-- My CSS -->
+    <!--
+    <link rel="stylesheet" href="css/styles.css?v=1.0">
+    -->
+    <style>
+        #request_body {
+            margin: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="request_body">
+        <!-- Inputs -->
+        <form>
+            <div class="form-group">
+                <label for="client_id">Client Id</label>
+                <input id="client_id" type="text" aria-describedby="input_client_id"
+                    placeholder="Client Id">
+            </div>
+
+            <button id="get_datasource_button" type="button" class="btn btn-primary">Get Data Sources</button>
+        </form>
+        <hr>
+        
+        <!-- Inputs -->
+        <label for="datasources">Data Sources</label>
+        <select id="datasources"></select>
+
+        <div>
+            <label>Start</label>
+            <input id="startdate" type="date">
+            <input id="starttime" type="time">
+        </div>
+        <div>
+            <label >End</label>
+            <input id="enddate" type="date">
+            <input id="endtime" type="time">
+        </div>
+        
+        <div>
+            <label >Value</label>
+            <input id="value" type="number">
+        </div>
+
+        <button id="add_dataset_button" type="button" class="btn btn-info">Add Data Set</button>
+        <hr>
+
+        
+        <button id="del_datasource_button" type="button" class="btn btn-danger">Delete Data Sources</button>
+    </div>
+
+    <!-- Library Script -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"
+        integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"
+        integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+        crossorigin="anonymous"></script>
+
+    <script src="https://apis.google.com/js/client.js"></script>
+    <!-- My Script -->
+    <script>
+        var client_id;
+        var access_token;
+        var scope = [   'https://www.googleapis.com/auth/fitness.body.read',
+                        'https://www.googleapis.com/auth/fitness.body.write'];
+
+        var datasources_url = 'https://www.googleapis.com/fitness/v1/users/me/dataSources';
+
+        $(window).on('load', function() {
+            var now = new Date();
+            $('input[type="date"]').val(getDateString(now).split(' ')[0]);
+            $('input[type="time"]').val(getDateString(now).split(' ')[1]);
+        });
+        function getDateString(date){
+            return date.getFullYear() + '-' + padding('0', date.getMonth()+1, 2) + '-' + padding('0', date.getDate(), 2) + ' ' +
+                padding('0', date.getHours(), 2) + ':' + padding('0', date.getMinutes(), 2) + ':' + padding('0', date.getSeconds(), 2);
+        }
+        function padding(str, num, digit){
+            while(new String(num).length < digit){
+                num = str + num;
+            }
+            return num;
+        }
+
+        $("#get_datasource_button").on('click', function () {
+            client_id = $('#client_id').val();
+
+            gapi.auth.authorize({
+                client_id: client_id,
+                scope: scope,
+                immediate: false,
+                response_type: 'token'
+            }, function (e) {
+                console.log(e);
+                access_token = e.access_token;
+                getDataSources();
+            })
+
+            // no jump
+            return false;
+        });
+        function getDataSources() {
+            $.ajax({
+                dataType: "json",
+                url: datasources_url + '?access_token=' + access_token,
+                success: function (json) {
+                    console.log(json);
+
+                    $('#datasources').empty();
+                    $.each(json.dataSource, function(index, value){
+                        var element = $('<option>' + value.dataStreamName +
+                            '('+value.dataType.field[0].name+': '+value.dataType.field[0].format+')</option>');
+                        element.attr('data-datastreamname', value.dataStreamName);
+                        element.attr('data-field_name', value.dataType.field[0].name);
+                        element.attr('data-field_format', value.dataType.field[0].format);
+                        element.attr('data-name', value.dataType.name);
+                        element.attr('data-datastreamid', value.dataStreamId);
+                        $('#datasources').append(element);
+                    });
+                }
+            });
+        };
+
+        $("#add_dataset_button").on('click', function () {
+            var startDate = new Date();
+            startDate.setTime($('#startdate')[0].valueAsNumber + $('#starttime')[0].valueAsNumber + (startDate.getTimezoneOffset()*60*1000));
+            var startDateNano = startDate.getTime() * 1000 * 1000;
+            var endDate = new Date();
+            endDate.setTime($('#enddate')[0].valueAsNumber + $('#endtime')[0].valueAsNumber + (endDate.getTimezoneOffset()*60*1000));
+            var endDateNano = endDate.getTime() * 1000 * 1000;
+
+            $.ajax({
+                type: 'PATCH',
+                headers: {
+                    Authorization: "Bearer " + access_token,
+                    "Content-Type": "application/json"
+                },
+                dataType: "json",
+                data: JSON.stringify({
+                    "dataSourceId": $('#datasources option:selected').attr('data-datastreamid'),
+                    "minStartTimeNs": startDateNano,
+                    "maxEndTimeNs": endDateNano,
+                    "point": [{
+                        "dataTypeName": $('#datasources option:selected').attr('data-name'),
+                        "startTimeNanos": startDateNano,
+                        "endTimeNanos": endDateNano,
+                        "value": [{
+                            "fpVal": new Number($('#value').val())
+                        }]
+                    }]
+                }),
+                url: datasources_url + '/' + $('#datasources option:selected').attr('data-datastreamid') +
+                    '/datasets/' + startDateNano +'-' + endDateNano,
+                success: function (json) {
+                    console.log(json);
+                },
+                fail: function (json) {
+                    console.log(json);
+                }
+            });
+
+            // no jump
+            return false;
+        });
+
+        $("#del_datasource_button").on('click', function () {
+            $.ajax({
+                type: 'DELETE',
+                url: datasources_url + '/' + $('#datasources option:selected').attr('data-datastreamid') + '?access_token=' + access_token,
+                success: function (json) {
+                    $('#datasources').empty();
+                }
+            });
+
+            // no jump
+            return false;
+        });
+    </script>
+</body>
+
+</html>
