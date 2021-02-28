@@ -58,9 +58,30 @@
     <script src="https://apis.google.com/js/client.js"></script>
     <!-- My Script -->
     <script>
+        /* 
+            Add Data Source first. Such as ...
+            {
+                application: {packageName: "com.google.android.gms", version: "1"}
+                dataQualityStandard: []
+                dataStreamId: "derived:com.google.weight:com.google.android.gms:merge_weight"
+                dataStreamName: "merge_weight"
+                dataType: {name: "com.google.weight", field: Array(1)}
+                type: "derived"
+            }
+            or
+            {
+                application: {packageName: "com.qingniu.feelfit"}
+                dataQualityStandard: []
+                dataStreamId: "raw:com.google.weight:com.qingniu.feelfit:weight"
+                dataStreamName: "weight"
+                dataType: {name: "com.google.weight", field: Array(1)}
+                type: "raw"
+            }
+        */
         var ACCESS_TOKEN_KEY = 'google_access_token_get_stp';
         var client_id;
-        var scope = 'https://www.googleapis.com/auth/fitness.activity.read';
+        var scope = [   'https://www.googleapis.com/auth/fitness.body.read',
+                        'https://www.googleapis.com/auth/fitness.body.write'];
 
         $("#do_api_button").on('click', function () {
             client_id = $('#client_id').val();
@@ -106,7 +127,7 @@
             console.log(new Date(end))
 
             var get_url = datasources_url + '/' +
-                "derived:com.google.step_count.delta:com.google.android.gms:merge_step_deltas" + '/datasets/' +
+                'derived:com.google.weight:com.google.android.gms:merge_weight' + '/datasets/' +
                 start.toString() + '000000' + '-' +
                 end.toString() + '000000';
             $.ajax({
