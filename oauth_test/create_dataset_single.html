@@ -23,10 +23,6 @@
         #request_body {
             margin: 5px;
         }
-        textarea {
-            width: 100%;
-            height: 30rem;
-        }
     </style>
 </head>
 
@@ -48,8 +44,27 @@
         <label for="datasources">Data Sources</label>
         <select id="datasources"></select>
 
-        <textarea id="datas"></textarea>
+        <div>
+            <label>Start</label>
+            <input id="startdate" type="date">
+            <input id="starttime" type="time">
+        </div>
+        <div>
+            <label >End</label>
+            <input id="enddate" type="date">
+            <input id="endtime" type="time">
+        </div>
+        
+        <div>
+            <label >Value</label>
+            <input id="value" type="number">
+        </div>
+
         <button id="add_dataset_button" type="button" class="btn btn-info">Add Data Set</button>
+        <hr>
+
+        
+        <button id="del_datasource_button" type="button" class="btn btn-danger">Delete Data Sources</button>
     </div>
 
     <!-- Library Script -->
@@ -70,6 +85,9 @@
         var datasources_url = 'https://www.googleapis.com/fitness/v1/users/me/dataSources';
 
         $(window).on('load', function() {
+            var now = new Date();
+            $('input[type="date"]').val(getDateString(now).split(' ')[0]);
+            $('input[type="time"]').val(getDateString(now).split(' ')[1]);
         });
         function getDateString(date){
             return date.getFullYear() + '-' + padding('0', date.getMonth()+1, 2) + '-' + padding('0', date.getDate(), 2) + ' ' +
@@ -122,35 +140,12 @@
         };
 
         $("#add_dataset_button").on('click', function () {
-            var datas = $("#datas").val();
-            datas = datas.split('\n').filter(function(raw){
-                return raw && raw.split('\t').length == 2;
-            }).map(function(raw){
-                var datetime = new Date(raw.split('\t')[0]);
-                // from japanese timezone to current timezone
-                datetime.setTime(datetime.getTime() - datetime.getTimezoneOffset()*60*1000 + (-9*60*60*1000));
-                var weight = new Number(raw.split('\t')[1]);
-
-                return {
-                    datetime: datetime,
-                    weight: weight
-                };
-            });
-            
-            var startDateNano = datas[0].datetime.getTime() * 1000 * 1000;
-            var endDateNano = datas[datas.length-1].datetime.getTime() * 1000 * 1000;
-
-            var points = [];
-            $.each(datas, function(index, data){
-                points.push({
-                    "dataTypeName": $('#datasources option:selected').attr('data-name'),
-                    "startTimeNanos": data.datetime.getTime() * 1000 * 1000,
-                    "endTimeNanos": data.datetime.getTime() * 1000 * 1000,
-                    "value": [{
-                        "fpVal": data.weight
-                    }]
-                });
-            });
+            var startDate = new Date();
+            startDate.setTime($('#startdate')[0].valueAsNumber + $('#starttime')[0].valueAsNumber + (startDate.getTimezoneOffset()*60*1000));
+            var startDateNano = startDate.getTime() * 1000 * 1000;
+            var endDate = new Date();
+            endDate.setTime($('#enddate')[0].valueAsNumber + $('#endtime')[0].valueAsNumber + (endDate.getTimezoneOffset()*60*1000));
+            var endDateNano = endDate.getTime() * 1000 * 1000;
 
             $.ajax({
                 type: 'PATCH',
@@ -163,7 +158,14 @@
                     "dataSourceId": $('#datasources option:selected').attr('data-datastreamid'),
                     "minStartTimeNs": startDateNano,
                     "maxEndTimeNs": endDateNano,
-                    "point": points
+                    "point": [{
+                        "dataTypeName": $('#datasources option:selected').attr('data-name'),
+                        "startTimeNanos": startDateNano,
+                        "endTimeNanos": endDateNano,
+                        "value": [{
+                            "fpVal": new Number($('#value').val())
+                        }]
+                    }]
                 }),
                 url: datasources_url + '/' + $('#datasources option:selected').attr('data-datastreamid') +
                     '/datasets/' + startDateNano +'-' + endDateNano,
@@ -172,6 +174,19 @@
                 },
                 fail: function (json) {
                     console.log(json);
+                }
+            });
+
+            // no jump
+            return false;
+        });
+
+        $("#del_datasource_button").on('click', function () {
+            $.ajax({
+                type: 'DELETE',
+                url: datasources_url + '/' + $('#datasources option:selected').attr('data-datastreamid') + '?access_token=' + access_token,
+                success: function (json) {
+                    $('#datasources').empty();
                 }
             });
 
